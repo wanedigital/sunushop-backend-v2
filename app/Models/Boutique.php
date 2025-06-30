@@ -18,4 +18,9 @@ class Boutique extends Model
         return $this->belongsToMany(Produit::class, 'produit_boutiques', 'id_boutique', 'id_produit');
     }
 
+    public function user()
+    {
+      return $this->belongsTo(User::class, 'id_user');
+    }
+
 }

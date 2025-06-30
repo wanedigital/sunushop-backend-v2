@@ -11,9 +11,19 @@ class ProduitController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        return Produit::all();
+        
+        $search = $request->query('search'); // Récupération du terme de recherche
+        $query = Produit::with('categorie');     
+
+       if ($search) {
+           $query->where('libelle', 'LIKE', "%$search%");
+        }
+
+        $produits = $query->get();
+
+        return response()->json($produits);
     }
 
     /**

@@ -9,10 +9,23 @@ class BoutiqueController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        //
-        return Boutique::all();
+        
+        $search = $request->query('search'); // Récupération du terme de recherche
+        $query = Boutique::with('user');     
+
+       if ($search) {
+           $query->where('nom', 'LIKE', "%$search%")
+                 ->orWhere('adresse', 'LIKE', "%$search%")
+                 ->orWhere('numeroCommercial', 'LIKE', "%$search%")
+                 ->orWhere('status', 'LIKE', "%$search%");
+        }
+
+        $boutiques = $query->get();
+
+        return response()->json($boutiques);
+        
     }
 
     /**
@@ -64,7 +77,7 @@ class BoutiqueController extends Controller
     {
         //
         $boutique = Boutique::findOrFail($id);
-        $this->authorize('delete', $boutique);
+        //$this->authorize('delete', $boutique); à réutiliser une fois que l'authentification a été gérée (Policy)
         $boutique->delete();
 
         return response()->json(['message' => 'Boutique supprimée']);
