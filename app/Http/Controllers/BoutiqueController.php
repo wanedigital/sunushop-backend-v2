@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Boutique;
+use Illuminate\Support\Facades\Storage;
 
 class BoutiqueController extends Controller
 {
@@ -18,21 +19,30 @@ class BoutiqueController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
-    {
-        $request->validate([
-            'nom' => 'required|string',
-            'adresse' => 'required|string',
-            'logo' => 'required|string',
-            'numeroCommercial' => 'nullable|string',
-            'status' => 'in:ouvret,fermer',
-            'id_user' => 'required|exists:users,id',
-        ]);
 
-        $boutique = Boutique::create($request->all());
+public function store(Request $request)
+{
+    $request->validate([
+        'nom' => 'required|string',
+        'adresse' => 'required|string',
+        'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+        'numeroCommercial' => 'required|string',
+        'status' => 'required|string',
+        'id_user' => 'required|integer',
+    ]);
 
-        return response()->json($boutique, 201);
+    $data = $request->all();
+
+    if ($request->hasFile('logo')) {
+        $path = $request->file('logo')->store('logos', 'public');
+        $data['logo'] = '/storage/' . $path;
     }
+
+    $boutique = Boutique::create($data);
+
+    return response()->json($boutique);
+}
+
 
 
     /**

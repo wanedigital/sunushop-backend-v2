@@ -11,9 +11,22 @@ class ProduitController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        return Produit::all();
+        $perPage = $request->input('perPage', 10);
+    $page = $request->input('page', 1);
+    
+    $query = Produit::query();
+    $total = $query->count();
+    
+    $produits = $query->skip(($page - 1) * $perPage)
+                     ->take($perPage)
+                     ->get();
+    
+    return response()->json([
+        'data' => $produits,
+        'total' => $total
+    ]);
     }
 
     /**
