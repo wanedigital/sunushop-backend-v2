@@ -18,10 +18,27 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
-        // Récupère tous les utilisateurs avec leurs profils
-        $users = User::with('profil')->get();
+        $search = $request->query('search'); // récupération du terme de recherche
 
-        return response()->json(['users' => $users], 200);
+        $query = User::with('profil')
+        ->whereHas('profil', function ($q) {
+            $q->whereIn('libelle', ['Client', 'Vendeur']);
+        })
+        ->where('status', 'actif'); 
+
+        if ($search) {
+         $query->where(function ($q) use ($search) {
+            $q->where('nom', 'LIKE', "%$search%")
+              ->orWhere('prenom', 'LIKE', "%$search%")
+              ->orWhere('adresse', 'LIKE', "%$search%");
+            });
+        }
+
+       $users = $query->get();
+
+       return response()->json(['users' => $users], 200);
+        
+        
     }
 
     /**
