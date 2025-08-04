@@ -19,6 +19,22 @@ class Produit extends Model
         return $this->belongsToMany(Boutique::class, 'produit_boutiques', 'id_produit', 'id_boutique');
         }
 
+        // Accesseur pour l'URL complète de l'image
+        public function getImageAttribute($value)
+        {
+            if ($value) {
+                return asset('storage/' . $value);
+            }
+            return null;
+        }
+
+        // Produit.php
+        public function commandes()
+        {
+            return $this->hasManyThrough(Commande::class, DetailCommande::class, 'produit_id', 'id', 'id', 'commande_id');
+        }
+
+
     protected $fillable =
      [
         'libelle', 

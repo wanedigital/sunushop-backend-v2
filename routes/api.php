@@ -5,6 +5,9 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProduitController;
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\CategorieController;
+use App\Http\Controllers\API\ProfilValidationController;
+use App\Http\Controllers\Api\CommandeController;
+
 
 use App\Http\Controllers\BoutiqueController;
 
@@ -36,6 +39,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('api.logout');
     Route::get('/user', [AuthController::class, 'user'])->name('api.user');
     Route::put('/user/update', [AuthController::class, 'updateProfile'])->name('api.user.update');
+    Route::patch('/user/change-password', [AuthController::class, 'changePassword']);
+
 });
 
 // Routes pour les utilisateurs (administrateurs uniquement)
@@ -57,14 +62,53 @@ Route::apiResource('produit-boutiques', \App\Http\Controllers\Prod_BoutiqueContr
  //   return $request->user();
 //});
 
-Route::apiResource('boutiques', \App\Http\Controllers\BoutiqueController::class);
 
+Route::middleware('auth:sanctum')->group(function () {
+    Route::apiResource('boutiques', \App\Http\Controllers\BoutiqueController::class);
+});
 
 
 Route::apiResource('categories', \App\Http\Controllers\CategorieController::class);
 Route::apiResource('produits', \App\Http\Controllers\ProduitController::class);
 
 Route::get('/boutiques/{id}/produits', [BoutiqueController::class, 'produits']);
+
+// route qui permet de modifier le produit du client en vendeur lorsqu'il cree une boutique
+Route::get('/valider-vendeur', [ProfilValidationController::class, 'valider'])
+    ->name('api.boutique.approuver-vendeur');
+
+
+
+// Routes pour les commandes (authentifiées et non authentifiées)
+Route::prefix('commandes')->group(function () {
+    // Création de commande (accessible aux connectés et non connectés)
+    Route::post('/', [CommandeController::class, 'store']);
+    
+    // Récupération d'une commande d'invité par numéro et email
+    Route::post('/invite/recherche', [CommandeController::class, 'getCommandeInvite']);
+    
+    // Affichage d'une commande spécifique (accessible aux connectés et non connectés)
+    Route::get('/{id}', [CommandeController::class, 'show']);
+    
+    // Annulation d'une commande (accessible aux connectés et non connectés)
+    Route::patch('/{id}/annuler', [CommandeController::class, 'annuler']);
+});
+
+// Routes protégées par authentification
+Route::middleware('auth:sanctum')->group(function () {
+    // Liste des commandes de l'utilisateur connecté
+    Route::get('/commandes', [CommandeController::class, 'index']);
+    
+    // Autres routes qui nécessitent une authentification...
+});
+
+/*Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/commandes', [CommandeController::class, 'store']);
+});*/
+
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/boutique/{id}/commandes', [CommandeController::class, 'getCommandesByBoutique']);
+});
 
 
 

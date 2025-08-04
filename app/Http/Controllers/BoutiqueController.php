@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Boutique;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\DemandeValidationProfil;
 
 class BoutiqueController extends Controller
 {
@@ -35,13 +38,13 @@ class BoutiqueController extends Controller
 
 public function store(Request $request)
 {
-    $request->validate([
+    /*$request->validate([
         'nom' => 'required|string',
         'adresse' => 'required|string',
         'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         'numeroCommercial' => 'required|string',
-        'status' => 'required|string',
-        'id_user' => 'required|integer',
+        'status' => 'nullable|in:ouvret,fermer', // facultatif
+        //'id_user' => 'required|integer',
     ]);
 
     $data = $request->all();
@@ -53,7 +56,44 @@ public function store(Request $request)
 
     $boutique = Boutique::create($data);
 
-    return response()->json($boutique);
+    return response()->json($boutique);*/
+
+    //
+
+    $request->validate([
+    'nom' => 'required|string',
+    'adresse' => 'required|string',
+    'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+    'numeroCommercial' => 'required|string',
+    'status' => 'in:en_attente,actif,suspendu'
+ ]);
+
+$data = $request->only(['nom', 'adresse', 'numeroCommercial', 'status']);
+$data['id_user'] = $request->user()->id;
+
+if ($request->hasFile('logo')) {
+    $path = $request->file('logo')->store('logos', 'public');
+    $data['logo'] = '/storage/' . $path;
+}
+
+$boutique = Boutique::create($data);
+//return response()->json($boutique, 201);
+
+// Génération du lien signé pour validation
+    $validationUrl = URL::temporarySignedRoute(
+        'api.boutique.approuver-vendeur',
+        now()->addMinutes(60),
+        ['user' => auth()->id()]
+    );
+
+    // Envoi de l’email avec le lien
+    Mail::to(auth()->user()->email)->send(new DemandeValidationProfil($validationUrl));
+
+    return response()->json([
+        'message' => 'Boutique créée avec succès. Un email vous a été envoyé pour activer votre profil de vendeur.',
+        'boutique' => $boutique,
+    ]);
+
 }
 
 
@@ -99,13 +139,37 @@ public function store(Request $request)
     // }
 
     
-    public function produits($id)
+    /*public function produits($id)
     {
         $boutique = Boutique::findOrFail($id);
 
         return response()->json([
             'boutique' => $boutique->nom,
             'produits' => $boutique->produits
+        ]);
+    }*/
+
+    public function produits($id)
+    {
+        $boutique = Boutique::with('produits')->findOrFail($id);
+        
+        return response()->json([
+            'boutique' => $boutique->nom,
+            'boutique_image' => $boutique->logo ? asset('storage/' . $boutique->logo) : null,
+            'produits' => $boutique->produits->map(function($produit) {
+                return [
+                    'id' => $produit->id,
+                    'libelle' => $produit->libelle,
+                    'description' => $produit->description,
+                    'prix' => $produit->prix,
+                    'quantite' => $produit->quantite,
+                    'image' => $produit->image ? asset('storage/' . $produit->image) : null,
+                    'disponible' => $produit->disponible,
+                    'categorie_id' => $produit->categorie_id,
+                    'created_at' => $produit->created_at,
+                    'updated_at' => $produit->updated_at
+                ];
+            })
         ]);
     }
 

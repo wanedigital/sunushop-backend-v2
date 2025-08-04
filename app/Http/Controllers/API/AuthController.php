@@ -175,4 +175,39 @@ class AuthController extends Controller
             ? response()->json(['message' => 'Mot de passe réinitialisé avec succès'], 200)
             : response()->json(['message' => 'Erreur lors de la réinitialisation'], 400);
     }
+
+    public function changePassword(Request $request)
+    {
+        $request->validate([
+            'ancienMotDePasse' => 'required|string',
+            'nouveauMotDePasse' => 'required|string|min:6',
+        ]);
+
+        $user = $request->user();
+
+        // Vérifier l'ancien mot de passe
+        if (!Hash::check($request->ancienMotDePasse, $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'L\'ancien mot de passe est incorrect'
+            ], 401);
+        }
+
+        // Vérifier que le nouveau mot de passe est différent
+        if (strcmp($request->ancienMotDePasse, $request->nouveauMotDePasse) === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Le nouveau mot de passe doit être différent de l\'ancien'
+            ], 400);
+        }
+
+        // Mettre à jour le mot de passe
+        $user->password = Hash::make($request->nouveauMotDePasse);
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Mot de passe mis à jour avec succès'
+        ]);
+    }
 }
