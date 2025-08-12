@@ -52,6 +52,10 @@ Route::middleware(['auth:sanctum', 'role:Administrateur'])->group(function () {
     Route::put('/users/{id}', [UserController::class, 'update'])->name('api.users.update');
     Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('api.users.destroy');
     Route::get('/roles', [UserController::class, 'roles'])->name('api.roles.index');
+    Route::get('/admin/statistiques/summary', [StatistiqueController::class, 'getAdminSummary'])->name('api.admin.stats.summary');
+    Route::get('/admin/statistiques/utilisateurs/croissance/{periode?}', [StatistiqueController::class, 'croissanceUtilisateurs'])->name('api.admin.stats.users.growth');
+    Route::get('/admin/statistiques/boutiques/classement/{limit?}', [StatistiqueController::class, 'classementBoutiques'])->name('api.admin.stats.shops.top');
+    Route::get('/admin/statistiques/produits/classement/{limit?}', [StatistiqueController::class, 'classementProduits'])->name('api.admin.stats.products.top');
 });
 
 
