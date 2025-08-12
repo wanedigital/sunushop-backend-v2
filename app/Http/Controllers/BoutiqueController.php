@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\DemandeValidationProfil;
+use Illuminate\Support\Facades\Auth;
+
 use App\Models\Categorie;
 use App\Models\Produit;
 
@@ -32,6 +34,10 @@ class BoutiqueController extends Controller
 
         return response()->json($boutiques);
         
+    }
+     public function allboutique()
+    {
+        return response()->json(Boutique::all(), 200);
     }
 
     //assister par b'one il affiche toutes les boutiques 
@@ -89,7 +95,6 @@ public function store(Request $request)
     $boutique = Boutique::create($data);
 
     return response()->json($boutique);*/
-
     //
 
     $request->validate([
@@ -97,7 +102,7 @@ public function store(Request $request)
     'adresse' => 'required|string',
     'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
     'numeroCommercial' => 'required|string',
-    'status' => 'in:en_attente,actif,suspendu'
+    'status' => 'nullable|in:ouvret,fermer', 
  ]);
 
 $data = $request->only(['nom', 'adresse', 'numeroCommercial', 'status']);
@@ -187,7 +192,7 @@ $boutique = Boutique::create($data);
         
         return response()->json([
             'boutique' => $boutique->nom,
-            'boutique_image' => $boutique->logo ? asset('storage/' . $boutique->logo) : null,
+            'boutique_image' => $boutique->logo ? asset( $boutique->logo) : null,
             'produits' => $boutique->produits->map(function($produit) {
                 return [
                     'id' => $produit->id,
@@ -195,7 +200,7 @@ $boutique = Boutique::create($data);
                     'description' => $produit->description,
                     'prix' => $produit->prix,
                     'quantite' => $produit->quantite,
-                    'image' => $produit->image ? asset('storage/' . $produit->image) : null,
+                    'image' => $produit->image ? asset($produit->image) : null,
                     'disponible' => $produit->disponible,
                     'categorie_id' => $produit->categorie_id,
                     'created_at' => $produit->created_at,
@@ -204,6 +209,38 @@ $boutique = Boutique::create($data);
             })
         ]);
     }
+        public function mesProduits()
+        {
+            $user = Auth::user();
+
+            if ($user->profil->libelle !== 'Vendeur') {
+                return response()->json(['message' => 'Accès non autorisé'], 403);
+            }
+
+            // Récupère la boutique liée au vendeur
+            $boutique = Boutique::with('produits')
+                ->where('id_user', $user->id)
+                ->firstOrFail();
+
+            return response()->json([
+                'boutique' => $boutique->nom,
+                'boutique_image' => $boutique->logo ? asset('storage/' . $boutique->logo) : null,
+                'produits' => $boutique->produits->map(function ($produit) {
+                    return [
+                        'id' => $produit->id,
+                        'libelle' => $produit->libelle,
+                        'description' => $produit->description,
+                        'prix' => $produit->prix,
+                        'quantite' => $produit->quantite,
+                        'image' => $produit->image ? asset('storage/' . $produit->image) : null,
+                        'disponible' => $produit->disponible,
+                        'categorie_id' => $produit->categorie_id,
+                        'created_at' => $produit->created_at,
+                        'updated_at' => $produit->updated_at
+                    ];
+                })
+            ]);
+        }
 
     // BoutiqueController.php
     public function getCategories($boutiqueId)

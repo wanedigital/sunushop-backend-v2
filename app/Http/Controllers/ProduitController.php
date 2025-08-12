@@ -4,7 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Produit;
-
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class ProduitController extends Controller
 {
@@ -43,9 +44,9 @@ class ProduitController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
-    {
-         // Validation des données envoyées
+public function store(Request $request)
+{
+    // 1Validation
     $request->validate([
         'libelle' => 'required|string|max:255',
         'description' => 'nullable|string',
@@ -56,10 +57,19 @@ class ProduitController extends Controller
         'categorie_id' => 'required|exists:categories,id'
     ]);
 
-    // Gestion de l'image (si elle est envoyée)
-    $imagePath = $request->file('image') ? $request->file('image')->store('produits', 'public') : null;
+    // Récupération de la boutique du vendeur
+    $vendeur = Auth::user();
+    $boutique = $vendeur->boutique; // Relation One-to-One dans ton modèle User
+    if (!$boutique) {
+        return response()->json(['message' => 'Boutique introuvable pour ce vendeur'], 404);
+    }
 
-    // Création d'un nouveau produit
+    //  Gestion image
+    $imagePath = $request->file('image')
+        ? $request->file('image')->store('produits', 'public')
+        : null;
+
+    //  Création du produit
     $produit = new Produit();
     $produit->libelle = $request->input('libelle');
     $produit->description = $request->input('description');
@@ -69,9 +79,22 @@ class ProduitController extends Controller
     $produit->disponible = $request->input('disponible');
     $produit->categorie_id = $request->input('categorie_id');
     $produit->save();
-    return response()->json(['message' => 'Produit ajouté avec succès', 'produit' => $produit], 201);
 
-    }
+    //  Insertion dans la table pivot
+    DB::table('produit_boutiques')->insert([
+        'id_produit' => $produit->id,
+        'id_boutique' => $boutique->id,
+        'created_at' => now(),
+        'updated_at' => now()
+    ]);
+
+    //  Réponse
+    return response()->json([
+        'message' => 'Produit ajouté avec succès',
+        'produit' => $produit
+    ], 201);
+}
+
 
     /**
      * Display the specified resource.

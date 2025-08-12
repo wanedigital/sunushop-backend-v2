@@ -7,6 +7,8 @@ use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\CategorieController;
 use App\Http\Controllers\API\ProfilValidationController;
 use App\Http\Controllers\Api\CommandeController;
+use App\Http\Controllers\API\StatistiqueController;
+
 
 
 use App\Http\Controllers\BoutiqueController;
@@ -68,6 +70,7 @@ Route::middleware('auth:sanctum')->group(function () {
     //Route::apiResource('boutiques', \App\Http\Controllers\BoutiqueController::class);
 });
 
+Route::get('/allboutiques', [BoutiqueController::class, 'allboutique']);
 
 // Récupérer les catégories d'une boutique spécifique
 Route::get('boutiques/{boutiqueId}/categories', [BoutiqueController::class, 'getCategories']);
@@ -84,7 +87,8 @@ Route::get('/boutiques/{id}/produits', [BoutiqueController::class, 'produits']);
 Route::get('/valider-vendeur', [ProfilValidationController::class, 'valider'])
     ->name('api.boutique.approuver-vendeur');
 
-
+Route::middleware('auth:sanctum')->post('/produits', [ProduitController::class, 'store']);
+Route::middleware('auth:sanctum')->get('/vendeur/produits', [BoutiqueController::class, 'mesProduits']);
 
 // Routes pour les commandes (authentifiées et non authentifiées)
 Route::prefix('commandes')->group(function () {
@@ -100,6 +104,16 @@ Route::prefix('commandes')->group(function () {
     // Annulation d'une commande (accessible aux connectés et non connectés)
     Route::patch('/{id}/annuler', [CommandeController::class, 'annuler']);
 });
+    // ... route pour permettre au vendeur de modifier le statut et Statitistique du vendeur
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::patch('/commandes/{id}/statut', [CommandeController::class, 'updateStatut']);
+
+Route::get('/ventes-vendeur/{type}', [StatistiqueController::class, 'ventesVendeurParPeriode']);
+Route::get('/meilleurs-clients-vendeur', [StatistiqueController::class, 'meilleursClientsVendeur']);
+});
+
+
 
 // Routes protégées par authentification
 Route::middleware('auth:sanctum')->group(function () {
