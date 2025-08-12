@@ -121,4 +121,90 @@ class Commande extends Model
             $commande->date = now()->toDateString();
         });
     }
+
+    public function meilleursClients()
+{
+    $user = Auth::user();
+
+    if (!$user || $user->profil->libelle !== 'Vendeur') {
+        return response()->json([
+            'success' => false,
+            'message' => 'Accès refusé'
+        ], 403);
+    }
+
+    $clients = Commande::select(
+            DB::raw('COALESCE(nom_client, users.name) as nom'),
+            DB::raw('COALESCE(prenom_client, "") as prenom'),
+            DB::raw('COALESCE(email_client, users.email) as email'),
+            DB::raw('COUNT(commandes.id) as nombre_commandes'),
+            DB::raw('SUM(total) as total_depense')
+        )
+        ->leftJoin('users', 'commandes.id_user', '=', 'users.id')
+        ->where('commandes.id_user', $user->id)
+        ->groupBy('nom', 'prenom', 'email')
+        ->orderByDesc('total_depense')
+        ->limit(10)
+        ->get();
+
+    return response()->json([
+        'success' => true,
+        'data' => $clients
+    ]);
+}
+public function ventesAnnuelles()
+{
+    $user = Auth::user();
+
+    if (!$user || $user->profil->libelle !== 'Vendeur') {
+        return response()->json([
+            'success' => false,
+            'message' => 'Accès refusé'
+        ], 403);
+    }
+
+    $stats = Commande::select(
+            DB::raw('YEAR(date) as annee'),
+            DB::raw('SUM(total) as total_ventes'),
+            DB::raw('COUNT(*) as nombre_commandes')
+        )
+        ->where('id_user', $user->id)
+        ->groupBy(DB::raw('YEAR(date)'))
+        ->orderBy(DB::raw('YEAR(date)'))
+        ->get();
+
+    return response()->json([
+        'success' => true,
+        'data' => $stats
+    ]);
+}
+public function ventesMensuelles()
+{
+    $user = Auth::user();
+
+    if (!$user || $user->profil->libelle !== 'Vendeur') {
+        return response()->json([
+            'success' => false,
+            'message' => 'Accès refusé'
+        ], 403);
+    }
+
+    // Statistiques par mois pour l'année en cours
+    $stats = Commande::select(
+            DB::raw('MONTH(date) as mois'),
+            DB::raw('SUM(total) as total_ventes'),
+            DB::raw('COUNT(*) as nombre_commandes')
+        )
+        ->where('id_user', $user->id)
+        ->whereYear('date', now()->year)
+        ->groupBy(DB::raw('MONTH(date)'))
+        ->orderBy(DB::raw('MONTH(date)'))
+        ->get();
+
+    return response()->json([
+        'success' => true,
+        'data' => $stats
+    ]);
+}
+
 }

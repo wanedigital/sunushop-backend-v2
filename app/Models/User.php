@@ -76,6 +76,10 @@ class User extends Authenticatable
     {
         return $this->profil && $this->profil->libelle === $role;
     }
+        public function boutique()
+        {
+            return $this->hasOne(Boutique::class, 'id_user');
+        }
 
 
 }

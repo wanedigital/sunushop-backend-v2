@@ -56,26 +56,30 @@ class AuthController extends Controller
      * Connexion d'un utilisateur.
      * POST /api/login
      */
-    public function login(Request $request)
-    {
-        $validated = $request->validate([
-            'email' => 'required|string|email',
-            'password' => 'required|string',
-        ]);
+   public function login(Request $request)
+{
+    $validated = $request->validate([
+        'email' => 'required|string|email',
+        'password' => 'required|string',
+    ]);
 
-        if (!Auth::attempt($validated)) {
-            return response()->json(['message' => 'Identifiants invalides'], 401);
-        }
-
-        $user = Auth::user();
-        $token = $user->createToken('auth_token', [], $request->remember ? now()->addDays(30) : now()->addHours(2));
-
-        return response()->json([
-            'message' => 'Connexion réussie',
-            'user' => $user->load('profil'),
-            'token' => $token,
-        ]);
+    if (!Auth::attempt($validated)) {
+        return response()->json(['message' => 'Identifiants invalides'], 401);
     }
+
+    $user = Auth::user();
+    $token = $user->createToken('auth_token', [], $request->remember ? now()->addDays(30) : now()->addHours(2));
+
+    // Charger la boutique si c'est un vendeur
+    $user->load('profil', 'boutique');
+
+    return response()->json([
+        'message' => 'Connexion réussie',
+        'user' => $user,
+        'token' => $token,
+    ]);
+}
+
 
     /**
      * Déconnexion de l'utilisateur.
