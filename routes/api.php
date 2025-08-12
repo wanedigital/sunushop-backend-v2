@@ -64,12 +64,19 @@ Route::apiResource('produit-boutiques', \App\Http\Controllers\Prod_BoutiqueContr
  //   return $request->user();
 //});
 
+Route::apiResource('boutiques', \App\Http\Controllers\BoutiqueController::class);
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::apiResource('boutiques', \App\Http\Controllers\BoutiqueController::class);
+    //Route::apiResource('boutiques', \App\Http\Controllers\BoutiqueController::class);
 });
 
 Route::get('/allboutiques', [BoutiqueController::class, 'allboutique']);
+
+// Récupérer les catégories d'une boutique spécifique
+Route::get('boutiques/{boutiqueId}/categories', [BoutiqueController::class, 'getCategories']);
+
+// Rechercher des produits dans une boutique spécifique
+Route::get('boutiques/{boutiqueId}/search', [BoutiqueController::class, 'search']);
 
 Route::apiResource('categories', \App\Http\Controllers\CategorieController::class);
 Route::apiResource('produits', \App\Http\Controllers\ProduitController::class);
@@ -123,6 +130,8 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/boutique/{id}/commandes', [CommandeController::class, 'getCommandesByBoutique']);
 });
+
+
 
 
 

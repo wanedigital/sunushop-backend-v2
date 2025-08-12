@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Mail;
 use App\Mail\DemandeValidationProfil;
 use Illuminate\Support\Facades\Auth;
 
+use App\Models\Categorie;
+use App\Models\Produit;
 
 class BoutiqueController extends Controller
 {
@@ -37,6 +39,36 @@ class BoutiqueController extends Controller
     {
         return response()->json(Boutique::all(), 200);
     }
+
+    //assister par b'one il affiche toutes les boutiques 
+    // si c'est l'admin qui esr connectter et si 
+    // c'est le vendeur l'ensemble de ces boutique
+    /*public function index(Request $request)
+    {
+        $user = $request->user();
+
+        // Assure-toi que le profil est bien chargé (avec la relation)
+        $user->load('profil');
+
+        if ($user->profil->libelle === 'Administrateur') {
+            $boutiques = Boutique::with('user')->get(); // Toutes les boutiques
+        } elseif ($user->profil->libelle === 'Vendeur') {
+            $boutiques = Boutique::with('user')
+                        ->where('id_user', $user->id)
+                        ->get(); // Boutiques du vendeur
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'Accès non autorisé'
+            ], 403);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $boutiques
+        ]);
+    }*/
+
 
     /**
      * Store a newly created resource in storage.
@@ -209,6 +241,34 @@ $boutique = Boutique::create($data);
                 })
             ]);
         }
+
+    // BoutiqueController.php
+    public function getCategories($boutiqueId)
+    {
+        $categories = Categorie::whereHas('produits', function ($query) use ($boutiqueId) {
+            $query->whereHas('boutiques', function ($q) use ($boutiqueId) {
+                $q->where('boutiques.id', $boutiqueId);
+            });
+        })->get();
+
+        return response()->json($categories);
+    }
+
+    public function search($boutiqueId, Request $request)
+    {
+        $searchTerm = $request->query('q');
+        
+        $produits = Produit::whereHas('boutiques', function ($query) use ($boutiqueId) {
+            $query->where('boutiques.id', $boutiqueId);
+        })
+        ->where(function ($query) use ($searchTerm) {
+            $query->where('libelle', 'LIKE', "%$searchTerm%")
+                ->orWhere('description', 'LIKE', "%$searchTerm%");
+        })
+        ->get();
+
+        return response()->json($produits);
+    }
 
     
 }
