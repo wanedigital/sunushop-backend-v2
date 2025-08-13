@@ -281,14 +281,6 @@ class CommandeController extends Controller
             }
 
             $commande->update(['etat' => 'annuler']);
-
-            // Remettre les produits en stock si géré
-            /*foreach ($commande->detailCommandes as $detail) {
-                if (isset($detail->produit->stock)) {
-                    $detail->produit->increment('quantite', $detail->quantite);
-                }
-            }*/
-
              // Réincrémenter les quantités des produits
         foreach ($commande->detailCommandes as $detail) {
             $produit = $detail->produit;
