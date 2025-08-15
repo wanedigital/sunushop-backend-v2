@@ -104,6 +104,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
 Route::get('/ventes-vendeur/{type}', [StatistiqueController::class, 'ventesVendeurParPeriode']);
 Route::get('/meilleurs-clients-vendeur', [StatistiqueController::class, 'meilleursClientsVendeur']);
+Route::get('/nouvelles-commandes-vendeur', [StatistiqueController::class, 'nouvellesCommandesVendeur']);
+Route::middleware('auth:sanctum')->get('/mes-clients', [StatistiqueController::class, 'clientsVendeurAvecActiviteMensuelle']);
 });
 
 

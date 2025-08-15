@@ -10,6 +10,14 @@ class Boutique extends Model
     use HasFactory;
     
     protected $guarded = [];
+    protected $fillable = [
+    'nom',
+    'adresse',
+    'numeroCommercial', // Ou le nom exact trouvé dans la base
+    'status',
+    'logo',
+    'id_user'
+];
 
     // app/Models/Boutique.php
 

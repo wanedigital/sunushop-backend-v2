@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\DemandeValidationProfil;
 use Illuminate\Support\Facades\Auth;
-
+use Illuminate\Support\Facades\Log;
 
 class BoutiqueController extends Controller
 {
@@ -93,15 +93,37 @@ $boutique = Boutique::create($data);
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
-    {
-        //
-        $boutique = Boutique::findOrFail($id);
-        //$this->authorize('update', $boutique);
+        public function update(Request $request, $id)
+        {
+            $validated = $request->validate([
+                'nom' => 'required|string|max:255',
+                'adresse' => 'required|string|max:255',
+                'numeroCommercial' => 'nullable|string|max:20',
+                'status' => 'required|in:ouvert,fermer',
+                'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+            ]);
 
-        $boutique->update($request->all());
-        return $boutique;
-    }
+            $boutique = Boutique::findOrFail($id);
+
+            // Gestion du logo
+            if ($request->hasFile('logo')) {
+                // Supprimer l'ancien logo si existe
+                if ($boutique->logo) {
+                    Storage::delete(str_replace('storage/', 'public/', $boutique->logo));
+                }
+                
+                $path = $request->file('logo')->store('public/logos');
+                $validated['logo'] = str_replace('public/', 'storage/', $path);
+            }
+
+            $boutique->update($validated);
+
+            return response()->json([
+                'message' => 'Boutique mise à jour avec succès',
+                'boutique' => $boutique
+            ]);
+        }
+
 
     /**
      * Remove the specified resource from storage.
@@ -130,8 +152,12 @@ $boutique = Boutique::create($data);
                 ->firstOrFail();
 
             return response()->json([
-                'boutique' => $boutique->nom,
-                'boutique_image' => $boutique->logo ? asset( $boutique->logo) : null,
+        'id' => $boutique->id,
+        'nom' => $boutique->nom,
+        'adresse' => $boutique->adresse,
+        'numeroCommercial' => $boutique->numeroCommercial,
+        'status' => $boutique->status,
+        'logo' => $boutique->logo ? asset($boutique->logo) : null,
                 'produits' => $boutique->produits->map(function ($produit) {
                     return [
                         'id' => $produit->id,
