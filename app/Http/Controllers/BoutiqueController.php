@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\DemandeValidationProfil;
 use Illuminate\Support\Facades\Auth;
-
+use Illuminate\Support\Facades\Log;
 use App\Models\Categorie;
 use App\Models\Produit;
 
@@ -76,27 +76,6 @@ class BoutiqueController extends Controller
 
 public function store(Request $request)
 {
-    /*$request->validate([
-        'nom' => 'required|string',
-        'adresse' => 'required|string',
-        'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-        'numeroCommercial' => 'required|string',
-        'status' => 'nullable|in:ouvret,fermer', // facultatif
-        //'id_user' => 'required|integer',
-    ]);
-
-    $data = $request->all();
-
-    if ($request->hasFile('logo')) {
-        $path = $request->file('logo')->store('logos', 'public');
-        $data['logo'] = '/storage/' . $path;
-    }
-
-    $boutique = Boutique::create($data);
-
-    return response()->json($boutique);*/
-    //
-
     $request->validate([
     'nom' => 'required|string',
     'adresse' => 'required|string',
@@ -114,7 +93,6 @@ if ($request->hasFile('logo')) {
 }
 
 $boutique = Boutique::create($data);
-//return response()->json($boutique, 201);
 
 // Génération du lien signé pour validation
     $validationUrl = URL::temporarySignedRoute(
@@ -147,15 +125,37 @@ $boutique = Boutique::create($data);
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
-    {
-        //
-        $boutique = Boutique::findOrFail($id);
-        //$this->authorize('update', $boutique);
+        public function update(Request $request, $id)
+        {
+            $validated = $request->validate([
+                'nom' => 'required|string|max:255',
+                'adresse' => 'required|string|max:255',
+                'numeroCommercial' => 'nullable|string|max:20',
+                'status' => 'required|in:ouvert,fermer',
+                'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+            ]);
 
-        $boutique->update($request->all());
-        return $boutique;
-    }
+            $boutique = Boutique::findOrFail($id);
+
+            // Gestion du logo
+            if ($request->hasFile('logo')) {
+                // Supprimer l'ancien logo si existe
+                if ($boutique->logo) {
+                    Storage::delete(str_replace('storage/', 'public/', $boutique->logo));
+                }
+                
+                $path = $request->file('logo')->store('public/logos');
+                $validated['logo'] = str_replace('public/', 'storage/', $path);
+            }
+
+            $boutique->update($validated);
+
+            return response()->json([
+                'message' => 'Boutique mise à jour avec succès',
+                'boutique' => $boutique
+            ]);
+        }
+
 
     /**
      * Remove the specified resource from storage.
@@ -164,51 +164,12 @@ $boutique = Boutique::create($data);
     {
         //
         $boutique = Boutique::findOrFail($id);
-        //$this->authorize('delete', $boutique); à réutiliser une fois que l'authentification a été gérée (Policy)
+
         $boutique->delete();
 
         return response()->json(['message' => 'Boutique supprimée']);
     }
 
-    // public function produits($id) {
-    //     $boutique = Boutique::with('produits')->findOrFail($id);
-    //     return $boutique->produits;
-    // }
-
-    
-    /*public function produits($id)
-    {
-        $boutique = Boutique::findOrFail($id);
-
-        return response()->json([
-            'boutique' => $boutique->nom,
-            'produits' => $boutique->produits
-        ]);
-    }*/
-
-    public function produits($id)
-    {
-        $boutique = Boutique::with('produits')->findOrFail($id);
-        
-        return response()->json([
-            'boutique' => $boutique->nom,
-            'boutique_image' => $boutique->logo ? asset( $boutique->logo) : null,
-            'produits' => $boutique->produits->map(function($produit) {
-                return [
-                    'id' => $produit->id,
-                    'libelle' => $produit->libelle,
-                    'description' => $produit->description,
-                    'prix' => $produit->prix,
-                    'quantite' => $produit->quantite,
-                    'image' => $produit->image ? asset($produit->image) : null,
-                    'disponible' => $produit->disponible,
-                    'categorie_id' => $produit->categorie_id,
-                    'created_at' => $produit->created_at,
-                    'updated_at' => $produit->updated_at
-                ];
-            })
-        ]);
-    }
         public function mesProduits()
         {
             $user = Auth::user();
@@ -223,8 +184,12 @@ $boutique = Boutique::create($data);
                 ->firstOrFail();
 
             return response()->json([
-                'boutique' => $boutique->nom,
-                'boutique_image' => $boutique->logo ? asset('storage/' . $boutique->logo) : null,
+        'id' => $boutique->id,
+        'nom' => $boutique->nom,
+        'adresse' => $boutique->adresse,
+        'numeroCommercial' => $boutique->numeroCommercial,
+        'status' => $boutique->status,
+        'logo' => $boutique->logo ? asset($boutique->logo) : null,
                 'produits' => $boutique->produits->map(function ($produit) {
                     return [
                         'id' => $produit->id,
@@ -232,7 +197,7 @@ $boutique = Boutique::create($data);
                         'description' => $produit->description,
                         'prix' => $produit->prix,
                         'quantite' => $produit->quantite,
-                        'image' => $produit->image ? asset('storage/' . $produit->image) : null,
+                        'image' => $produit->image ? asset($produit->image) : null,
                         'disponible' => $produit->disponible,
                         'categorie_id' => $produit->categorie_id,
                         'created_at' => $produit->created_at,
