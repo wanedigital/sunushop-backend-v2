@@ -140,6 +140,7 @@ class StatistiqueController extends Controller
     ]);
 }
 
+
 /**
      * Récupérer le nombre de nouvelles commandes (etat = 'en attente')
      * pour un vendeur connecté
@@ -259,6 +260,133 @@ class StatistiqueController extends Controller
                 COALESCE(commandes.prenom_client, '') AS prenom,
                 COALESCE(commandes.email_client, users.email) AS email
             ")
+    public function getAdminSummary()
+    {
+        $user = Auth::user();
+
+        // Vérification que l'utilisateur est un administrateur
+        if (!$user || $user->profil->libelle !== 'Administrateur') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Accès non autorisé. Seuls les administrateurs peuvent accéder à ces statistiques.'
+            ], 403);
+        }
+
+        // --- Statistiques sur les Commandes ---
+
+        // Nombre total de commandes, tous statuts confondus
+        $total_orders = DB::table('commandes')->count();
+
+        // Nombre de commandes passées par des visiteurs (non-inscrits)
+        $commandes_visiteurs = DB::table('commandes')->whereNull('id_user')->count();
+
+        // Nombre de commandes en attente de traitement
+        $pending_orders = DB::table('commandes')->where('etat', 'en attente')->count();
+
+        // --- Statistiques sur les Boutiques ---
+
+        // Nombre de boutiques actuellement ouvertes
+        $active_shops = DB::table('boutiques')->where('status', 'ouvret')->count();
+
+        // --- Statistiques sur les Utilisateurs ---
+
+        // Nombre total d'utilisateurs avec le profil "Client"
+        $total_clients_enregistres = DB::table('users')
+            ->join('profils', 'users.profil_id', '=', 'profils.id')
+            ->where('profils.libelle', 'Client')
+            ->count();
+
+        // Nombre total d'utilisateurs avec le profil "Vendeur"
+        $total_vendors = DB::table('users')
+            ->join('profils', 'users.profil_id', '=', 'profils.id')
+            ->where('profils.libelle', 'Vendeur')
+            ->count();
+
+        // Assemblage des données pour la réponse JSON
+        $summary = [
+            'total_orders' => $total_orders,
+            'pending_orders' => $pending_orders,
+            'commandes_visiteurs' => $commandes_visiteurs,
+            'active_shops' => $active_shops,
+            'total_clients_enregistres' => $total_clients_enregistres,
+            'total_vendors' => $total_vendors,
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => $summary
+        ]);
+    }
+
+    public function croissanceUtilisateurs($periode = 'mois')
+    {
+        $user = Auth::user();
+        // Vérification que l'utilisateur est un administrateur
+        if (!$user || $user->profil->libelle !== 'Administrateur') {
+            return response()->json(['success' => false, 'message' => 'Accès non autorisé.'], 403);
+        }
+
+        // Détermination du format de date pour le groupement SQL en fonction de la période choisie
+        $format = match ($periode) {
+            'annee' => '%%Y',
+            'semaine' => '%%Y-%%v', // Numéro de semaine ISO 8601
+            'jour' => '%%Y-%%m-%%d',
+            default => '%%Y-%%m', // Par défaut, par mois
+        };
+
+        // Requête pour agréger les nouvelles inscriptions
+        $stats = DB::table('users')
+            ->join('profils', 'users.profil_id', '=', 'profils.id')
+            ->select(
+                // Formate la date de création pour le groupement
+                DB::raw("DATE_FORMAT(users.created_at, '$format') as date"),
+                // Compte les nouveaux clients pour cette période
+                DB::raw("SUM(CASE WHEN profils.libelle = 'Client' THEN 1 ELSE 0 END) as nouveaux_clients"),
+                // Compte les nouveaux vendeurs pour cette période
+                DB::raw("SUM(CASE WHEN profils.libelle = 'Vendeur' THEN 1 ELSE 0 END) as nouveaux_vendeurs")
+            )
+            ->whereIn('profils.libelle', ['Client', 'Vendeur'])
+            ->groupBy('date')
+            ->orderBy('date', 'asc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'periode' => $periode,
+            'data' => $stats
+        ]);
+    }
+
+    public function classementBoutiques($limit = 10)
+    {
+        $user = Auth::user();
+        // Vérification que l'utilisateur est un administrateur
+        if (!$user || $user->profil->libelle !== 'Administrateur') {
+            return response()->json(['success' => false, 'message' => 'Accès non autorisé.'], 403);
+        }
+
+        // Requête pour classer les boutiques par nombre de commandes
+        $topBoutiques = DB::table('boutiques as b')
+            // Joindre les produits de la boutique
+            ->join('produit_boutiques as pb', 'b.id', '=', 'pb.id_boutique')
+            // Joindre les détails des commandes contenant ces produits
+            ->join('detail_commandes as dc', 'pb.id_produit', '=', 'dc.produit_id')
+            // Joindre les commandes pour compter
+            ->join('commandes as c', 'dc.commande_id', '=', 'c.id')
+            // Joindre les utilisateurs pour obtenir le nom du vendeur
+            ->join('users as u', 'b.id_user', '=', 'u.id')
+            // Sélectionner les informations pertinentes
+            ->select(
+                'b.id as boutique_id',
+                'b.nom as nom_boutique',
+                'b.status as statut',
+                DB::raw("CONCAT(u.prenom, ' ', u.nom) as nom_vendeur"),
+                // Compter les commandes distinctes pour chaque boutique
+                DB::raw('COUNT(DISTINCT c.id) as nombre_commandes')
+            )
+            ->groupBy('b.id', 'b.nom', 'b.status', 'nom_vendeur')
+            ->orderByDesc('nombre_commandes')
+            ->limit((int)$limit) // Limiter le nombre de résultats
             ->get();
 
         return response()->json([
@@ -277,4 +405,43 @@ class StatistiqueController extends Controller
         ], 500);
     }
 }
+            'data' => $topBoutiques
+        ]);
+    }
+
+    public function classementProduits($limit = 10)
+    {
+        $user = Auth::user();
+        // Vérification que l'utilisateur est un administrateur
+        if (!$user || $user->profil->libelle !== 'Administrateur') {
+            return response()->json(['success' => false, 'message' => 'Accès non autorisé.'], 403);
+        }
+
+        // Requête pour classer les produits par quantité vendue
+        $topProduits = DB::table('produits as p')
+            // Joindre les détails de commande pour obtenir les quantités
+            ->join('detail_commandes as dc', 'p.id', '=', 'dc.produit_id')
+            // Joindre les commandes pour filtrer par état
+            ->join('commandes as c', 'dc.commande_id', '=', 'c.id')
+            // Joindre les catégories pour l'information contextuelle
+            ->join('categories as cat', 'p.categorie_id', '=', 'cat.id')
+            // On ne compte que les produits des commandes validées, en cours ou terminées
+            ->whereIn('c.etat', ['valider', 'en cours', 'terminer'])
+            ->select(
+                'p.id as produit_id',
+                'p.libelle as nom_produit',
+                'cat.libelle as categorie',
+                // Sommer les quantités vendues pour chaque produit
+                DB::raw('SUM(dc.quantite) as quantite_vendue')
+            )
+            ->groupBy('p.id', 'p.libelle', 'cat.libelle')
+            ->orderByDesc('quantite_vendue')
+            ->limit((int)$limit)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $topProduits
+        ]);
+    }
 }

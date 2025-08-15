@@ -10,7 +10,7 @@ class Categorie extends Model
     use HasFactory;
     public function produits()
     {
-        return $this->hasMany(Produit::class);
+        return $this->hasMany(Produit::class, 'categorie_id');
     }
     protected $fillable = ['libelle']; 
 }

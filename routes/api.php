@@ -52,6 +52,10 @@ Route::middleware(['auth:sanctum', 'role:Administrateur'])->group(function () {
     Route::put('/users/{id}', [UserController::class, 'update'])->name('api.users.update');
     Route::delete('/users/{id}', [UserController::class, 'destroy'])->name('api.users.destroy');
     Route::get('/roles', [UserController::class, 'roles'])->name('api.roles.index');
+    Route::get('/admin/statistiques/summary', [StatistiqueController::class, 'getAdminSummary'])->name('api.admin.stats.summary');
+    Route::get('/admin/statistiques/utilisateurs/croissance/{periode?}', [StatistiqueController::class, 'croissanceUtilisateurs'])->name('api.admin.stats.users.growth');
+    Route::get('/admin/statistiques/boutiques/classement/{limit?}', [StatistiqueController::class, 'classementBoutiques'])->name('api.admin.stats.shops.top');
+    Route::get('/admin/statistiques/produits/classement/{limit?}', [StatistiqueController::class, 'classementProduits'])->name('api.admin.stats.products.top');
 });
 
 
@@ -64,12 +68,19 @@ Route::apiResource('produit-boutiques', \App\Http\Controllers\Prod_BoutiqueContr
  //   return $request->user();
 //});
 
+Route::apiResource('boutiques', \App\Http\Controllers\BoutiqueController::class);
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::apiResource('boutiques', \App\Http\Controllers\BoutiqueController::class);
+    //Route::apiResource('boutiques', \App\Http\Controllers\BoutiqueController::class);
 });
 
 Route::get('/allboutiques', [BoutiqueController::class, 'allboutique']);
+
+// Récupérer les catégories d'une boutique spécifique
+Route::get('boutiques/{boutiqueId}/categories', [BoutiqueController::class, 'getCategories']);
+
+// Rechercher des produits dans une boutique spécifique
+Route::get('boutiques/{boutiqueId}/search', [BoutiqueController::class, 'search']);
 
 Route::apiResource('categories', \App\Http\Controllers\CategorieController::class);
 Route::apiResource('produits', \App\Http\Controllers\ProduitController::class);
@@ -125,6 +136,8 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/boutique/{id}/commandes', [CommandeController::class, 'getCommandesByBoutique']);
 });
+
+
 
 
 
