@@ -235,5 +235,27 @@ $boutique = Boutique::create($data);
         return response()->json($produits);
     }
 
-    
+    public function produits($id)
+    {
+        $boutique = Boutique::with('produits')->findOrFail($id);
+        
+        return response()->json([
+            'boutique' => $boutique->nom,
+            'boutique_image' => $boutique->logo ? asset('storage/' . $boutique->logo) : null,
+            'produits' => $boutique->produits->map(function($produit) {
+                return [
+                    'id' => $produit->id,
+                    'libelle' => $produit->libelle,
+                    'description' => $produit->description,
+                    'prix' => $produit->prix,
+                    'quantite' => $produit->quantite,
+                    'image' => $produit->image ? asset( $produit->image) : null,
+                    'disponible' => $produit->disponible,
+                    'categorie_id' => $produit->categorie_id,
+                    'created_at' => $produit->created_at,
+                    'updated_at' => $produit->updated_at
+                ];
+            })
+        ]);
+    }
 }

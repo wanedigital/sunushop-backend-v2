@@ -260,6 +260,32 @@ class StatistiqueController extends Controller
                 COALESCE(commandes.prenom_client, '') AS prenom,
                 COALESCE(commandes.email_client, users.email) AS email
             ")
+            ->get();
+
+        // 🔹 Clients inactifs ce mois-ci (tous les clients - clients ce mois-ci)
+        $clientsInactifs = $clientsTous->reject(function ($client) use ($clientsMois) {
+            return $clientsMois->contains('id_user', $client->id_user);
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'clients_total' => $clientsTous->count(),
+                'clients_actifs' => $clientsMois->count(),
+                'clients_inactifs' => $clientsInactifs->count(),
+                'liste_clients_actifs' => $clientsMois,
+                'liste_clients_inactifs' => $clientsInactifs->values()
+            ]
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la récupération des clients',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
     public function getAdminSummary()
     {
         $user = Auth::user();
@@ -358,13 +384,15 @@ class StatistiqueController extends Controller
     }
 
     public function classementBoutiques($limit = 10)
-    {
-        $user = Auth::user();
-        // Vérification que l'utilisateur est un administrateur
-        if (!$user || $user->profil->libelle !== 'Administrateur') {
-            return response()->json(['success' => false, 'message' => 'Accès non autorisé.'], 403);
-        }
+{
+    $user = Auth::user();
+    
+    // Vérification que l'utilisateur est un administrateur
+    if (!$user || $user->profil->libelle !== 'Administrateur') {
+        return response()->json(['success' => false, 'message' => 'Accès non autorisé.'], 403);
+    }
 
+    try {
         // Requête pour classer les boutiques par nombre de commandes
         $topBoutiques = DB::table('boutiques as b')
             // Joindre les produits de la boutique
@@ -384,30 +412,24 @@ class StatistiqueController extends Controller
                 // Compter les commandes distinctes pour chaque boutique
                 DB::raw('COUNT(DISTINCT c.id) as nombre_commandes')
             )
-            ->groupBy('b.id', 'b.nom', 'b.status', 'nom_vendeur')
+            ->groupBy('b.id', 'b.nom', 'b.status', 'u.prenom', 'u.nom')
             ->orderByDesc('nombre_commandes')
             ->limit((int)$limit) // Limiter le nombre de résultats
             ->get();
 
         return response()->json([
             'success' => true,
-            'clients_total' => $clientsTous,
-            'clients_mois' => $clientsMois,
-            'nombre_total' => $clientsTous->count(),
-            'nombre_mois' => $clientsMois->count()
+            'data' => $topBoutiques
         ]);
 
     } catch (\Exception $e) {
         return response()->json([
             'success' => false,
-            'message' => 'Erreur lors de la récupération des clients',
+            'message' => 'Erreur lors de la récupération du classement des boutiques',
             'error' => $e->getMessage()
         ], 500);
     }
 }
-            'data' => $topBoutiques
-        ]);
-    }
 
     public function classementProduits($limit = 10)
     {
