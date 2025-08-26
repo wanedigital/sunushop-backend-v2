@@ -7,6 +7,8 @@ use App\Models\Commande;
 use App\Models\DetailCommande;
 use App\Models\Produit;
 use App\Models\Boutique;
+use App\Models\Paiement;
+use App\Models\TypePaiement;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -30,32 +32,14 @@ class CommandeController extends Controller
                 ], 401);
             }
 
-            $commandes = Commande::with(['detailCommandes.produit'])
+            $commandes = Commande::with(['detailCommandes.produit', 'paiement'])
                 ->where('id_user', $user->id)
                 ->orderBy('created_at', 'desc')
                 ->get();
 
             return response()->json([
                 'success' => true,
-                'data' => $commandes->map(function ($commande) {
-                    return [
-                        'id' => $commande->id,
-                        'numeroCommande' => $commande->numeroCommande,
-                        'date' => $commande->date,
-                        'etat' => $commande->etat,
-                        'total' => $commande->total,
-                        'adresse' => $commande->adresse_client,
-                        'telephone' => $commande->telephone_client,
-                        'notes' => $commande->notes,
-                        'items' => $commande->detailCommandes->map(function ($detail) {
-                            return [
-                                'produit' => $detail->produit,
-                                'quantite' => $detail->quantite,
-                                'prixUnitaire' => $detail->prixunitaire
-                            ];
-                        })
-                    ];
-                })
+                'data' => $commandes
             ]);
 
         } catch (\Exception $e) {
@@ -102,6 +86,14 @@ class CommandeController extends Controller
         DB::beginTransaction();
 
         try {
+            // Trouver le type de paiement "Paiement à la livraison"
+            $typePaiementLivraison = TypePaiement::where('libelle', 'Paiement à la livraison')->first();
+
+            if (!$typePaiementLivraison) {
+                // Si le type de paiement n'existe pas, la transaction ne peut pas continuer
+                throw new Exception("Le type de paiement 'Paiement à la livraison' est introuvable. Veuillez initialiser les données de la base.");
+            }
+
             $total = 0;
             $produits = []; // Pour garder les références aux produits
 
@@ -112,7 +104,7 @@ class CommandeController extends Controller
                 
                 // Vérifier la quantité disponible
                 if ($produit->quantite < $item['quantite']) {
-                    throw new \Exception("Quantité insuffisante pour: " . $produit->libelle);
+                    throw new Exception("Quantité insuffisante pour: " . $produit->libelle);
                 }
                 
                 $total += $produit->prix * $item['quantite'];
@@ -138,6 +130,15 @@ class CommandeController extends Controller
 
             $commande = Commande::create($commandeData);
 
+            // Créer l'enregistrement de paiement associé
+            Paiement::create([
+                'commande_id' => $commande->id,
+                'type_paiement_id' => $typePaiementLivraison->id,
+                'montantTotal' => $commande->total,
+                'status' => 'en attente', // Statut initial
+                'date' => now()
+            ]);
+
             // 2. Création des détails + décrémentation
             foreach ($request->items as $item) {
                 $produit = $produits[$item['produitId']]; // Récupérer le produit
@@ -158,7 +159,7 @@ class CommandeController extends Controller
             
 
             // Charger les relations pour la réponse
-            $commande->load(['detailCommandes.produit']);
+            $commande->load(['detailCommandes.produit', 'paiement']);
 
              // Envoyer l'email si invité
             if (!$user) {
@@ -168,27 +169,10 @@ class CommandeController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Commande créée avec succès',
-                'data' => [
-                    'id' => $commande->id,
-                    'numeroCommande' => $commande->numeroCommande,
-                    'date' => $commande->date,
-                    'etat' => $commande->etat,
-                    'total' => $commande->total,
-                    'adresse' => $commande->adresse_client,
-                    'telephone' => $commande->telephone_client,
-                    'notes' => $commande->notes,
-                    'nomComplet' => $commande->nom_complet_client,
-                    'items' => $commande->detailCommandes->map(function ($detail) {
-                        return [
-                            'produit' => $detail->produit,
-                            'quantite' => $detail->quantite,
-                            'prixUnitaire' => $detail->prixunitaire
-                        ];
-                    })
-                ]
+                'data' => $commande
             ], 201);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
             
             return response()->json([
@@ -204,7 +188,7 @@ class CommandeController extends Controller
         try {
             $user = Auth::user();
             
-            $query = Commande::with(['detailCommandes.produit']);
+            $query = Commande::with(['detailCommandes.produit', 'paiement']);
             
             // Si l'utilisateur est connecté, filtrer par ses commandes
             if ($user) {
@@ -222,25 +206,7 @@ class CommandeController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'id' => $commande->id,
-                    'numeroCommande' => $commande->numeroCommande,
-                    'date' => $commande->date,
-                    'etat' => $commande->etat,
-                    'total' => $commande->total,
-                    'adresse' => $commande->adresse_client,
-                    'telephone' => $commande->telephone_client,
-                    'email' => $commande->email_client,
-                    'notes' => $commande->notes,
-                    'nomComplet' => $commande->nom_complet_client,
-                    'items' => $commande->detailCommandes->map(function ($detail) {
-                        return [
-                            'produit' => $detail->produit,
-                            'quantite' => $detail->quantite,
-                            'prixUnitaire' => $detail->prixunitaire
-                        ];
-                    })
-                ]
+                'data' => $commande
             ]);
 
         } catch (\Exception $e) {
@@ -319,7 +285,7 @@ class CommandeController extends Controller
         }
 
         try {
-            $commande = Commande::with(['detailCommandes.produit'])
+            $commande = Commande::with(['detailCommandes.produit', 'paiement'])
                 ->where('numeroCommande', $request->numeroCommande)
                 ->where('email_client', $request->email)
                 ->whereNull('id_user') // Seulement les commandes d'invités
@@ -334,25 +300,7 @@ class CommandeController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'id' => $commande->id,
-                    'numeroCommande' => $commande->numeroCommande,
-                    'date' => $commande->date,
-                    'etat' => $commande->etat,
-                    'total' => $commande->total,
-                    'adresse' => $commande->adresse_client,
-                    'telephone' => $commande->telephone_client,
-                    'email' => $commande->email_client,
-                    'notes' => $commande->notes,
-                    'nomComplet' => $commande->nom_complet_client,
-                    'items' => $commande->detailCommandes->map(function ($detail) {
-                        return [
-                            'produit' => $detail->produit,
-                            'quantite' => $detail->quantite,
-                            'prixUnitaire' => $detail->prixunitaire
-                        ];
-                    })
-                ]
+                'data' => $commande
             ]);
 
         } catch (\Exception $e) {
@@ -390,7 +338,7 @@ class CommandeController extends Controller
             ->distinct()
             ->pluck('commande_id');
 
-        $commandes = Commande::with(['detailCommandes.produit', 'user'])
+        $commandes = Commande::with(['detailCommandes.produit', 'user', 'paiement'])
             ->whereIn('id', $commandeIds)
             ->get();
 
@@ -469,7 +417,55 @@ class CommandeController extends Controller
     }
 }
 
-public function ventesVendeurParPeriode($type)
+public function updatePaiementStatus(Request $request, $commandeId)
+{
+    try {
+        $user = Auth::user();
+
+        // 1. Validation
+        $validator = Validator::make($request->all(), [
+            'status' => 'required|in:en attente,reussi,echoue'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'message' => 'Données invalides', 'errors' => $validator->errors()], 422);
+        }
+
+        $commande = Commande::with('paiement')->find($commandeId);
+
+        if (!$commande || !$commande->paiement) {
+            return response()->json(['success' => false, 'message' => 'Paiement de commande introuvable'], 404);
+        }
+
+        // 2. Autorisation (simplifiée pour le MVP : Vendeur ou Admin)
+        // Une logique plus fine vérifierait que la commande contient des produits du vendeur.
+        if ($user->profil->libelle !== 'Vendeur' && $user->profil->libelle !== 'Admin') {
+             return response()->json(['success' => false, 'message' => 'Accès refusé'], 403);
+        }
+        
+        // TODO: Pour une V2, vérifier que la commande appartient bien au vendeur.
+
+        // 3. Mise à jour
+        $paiement = $commande->paiement;
+        $paiement->status = $request->status;
+        $paiement->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Statut du paiement mis à jour.',
+            'data' => $paiement
+        ]);
+
+    } catch (Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Erreur lors de la mise à jour du paiement.',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+/*public function ventesVendeurParPeriode($type)
 {
     $user = Auth::user();
 
@@ -489,16 +485,14 @@ public function ventesVendeurParPeriode($type)
 
     if ($type === 'mois') {
         $query->whereRaw('EXTRACT(YEAR FROM commandes.date) = ?', [now()->year])
-            ->selectRaw('
-                EXTRACT(MONTH FROM commandes.date) as periode,
+            ->selectRaw('                EXTRACT(MONTH FROM commandes.date) as periode,
                 SUM(detail_commandes.quantite * detail_commandes.prixunitaire) as total_ventes,
                 COUNT(DISTINCT commandes.id) as nombre_commandes
             ')
             ->groupBy(DB::raw('EXTRACT(MONTH FROM commandes.date)'))
             ->orderBy('periode');
     } elseif ($type === 'annee') {
-        $query->selectRaw('
-                EXTRACT(YEAR FROM commandes.date) as periode,
+        $query->selectRaw('                EXTRACT(YEAR FROM commandes.date) as periode,
                 SUM(detail_commandes.quantite * detail_commandes.prixunitaire) as total_ventes,
                 COUNT(DISTINCT commandes.id) as nombre_commandes
             ')
@@ -536,8 +530,7 @@ public function meilleursClientsVendeur()
         ->join('boutiques', 'produit_boutiques.id_boutique', '=', 'boutiques.id')
         ->leftJoin('users', 'commandes.id_user', '=', 'users.id') // client connecté
         ->where('boutiques.id_user', $user->id)
-        ->selectRaw("
-            COALESCE(commandes.nom_client, users.nom) as nom,
+        ->selectRaw("            COALESCE(commandes.nom_client, users.nom) as nom,
             COALESCE(commandes.prenom_client, '') as prenom,
             COALESCE(commandes.email_client, users.email) as email,
             COUNT(DISTINCT commandes.id) as nombre_commandes,
@@ -545,7 +538,7 @@ public function meilleursClientsVendeur()
         ")
         ->groupBy(
     DB::raw('COALESCE(commandes.nom_client, users.nom)'),
-    DB::raw('COALESCE(commandes.prenom_client, \'\')'),
+    DB::raw('COALESCE(commandes.prenom_client, "")'),
     DB::raw('COALESCE(commandes.email_client, users.email)')
 )
         ->orderByDesc('total_depense')
@@ -556,6 +549,7 @@ public function meilleursClientsVendeur()
         'success' => true,
         'data' => $clients
     ]);
-}
+}*/
+
 
 }
