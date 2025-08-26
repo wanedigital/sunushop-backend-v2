@@ -44,6 +44,11 @@ class Commande extends Model
         return $this->hasMany(DetailCommande::class);
     }
 
+    public function paiement()
+    {
+        return $this->hasOne(Paiement::class);
+    }
+
     // Accesseurs
     public function getNomCompletClientAttribute()
     {

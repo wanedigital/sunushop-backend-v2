@@ -112,6 +112,7 @@ Route::prefix('commandes')->group(function () {
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/commandes/{id}/statut', [CommandeController::class, 'updateStatut']);
+    Route::patch('/commandes/{commandeId}/paiement/statut', [CommandeController::class, 'updatePaiementStatus']);
 
 Route::get('/ventes-vendeur/{type}', [StatistiqueController::class, 'ventesVendeurParPeriode']);
 Route::get('/meilleurs-clients-vendeur', [StatistiqueController::class, 'meilleursClientsVendeur']);
