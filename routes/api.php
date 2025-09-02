@@ -68,7 +68,9 @@ Route::apiResource('produit-boutiques', \App\Http\Controllers\Prod_BoutiqueContr
  //   return $request->user();
 //});
 
-Route::apiResource('boutiques', \App\Http\Controllers\BoutiqueController::class);
+//Route::apiResource('boutiques', \App\Http\Controllers\BoutiqueController::class);
+
+Route::middleware('auth:sanctum')->apiResource('boutiques', \App\Http\Controllers\BoutiqueController::class);
 
 Route::middleware('auth:sanctum')->group(function () {
     //Route::apiResource('boutiques', \App\Http\Controllers\BoutiqueController::class);
@@ -93,7 +95,8 @@ Route::get('/valider-vendeur', [ProfilValidationController::class, 'valider'])
 
 Route::middleware('auth:sanctum')->post('/produits', [ProduitController::class, 'store']);
 Route::middleware('auth:sanctum')->get('/vendeur/produits', [BoutiqueController::class, 'mesProduits']);
-
+// Route accessible aux utilisateurs authentifiés (pas seulement vendeurs)
+Route::middleware('auth:sanctum')->get('/user/has-boutique', [BoutiqueController::class, 'hasBoutique']);
 // Routes pour les commandes (authentifiées et non authentifiées)
 Route::prefix('commandes')->group(function () {
     // Création de commande (accessible aux connectés et non connectés)

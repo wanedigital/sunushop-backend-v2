@@ -68,7 +68,7 @@ public function store(Request $request)
     $imagePath = $request->file('image')
         ? $request->file('image')->store('produits', 'public')
         : null;
-
+    \Log::info('Image path: ' . $imagePath);
     //  Création du produit
     $produit = new Produit();
     $produit->libelle = $request->input('libelle');
