@@ -269,7 +269,7 @@ public function hasBoutique()
         
         return response()->json([
             'boutique' => $boutique->nom,
-            'boutique_image' => $boutique->logo ? asset('storage/' . $boutique->logo) : null,
+            'boutique_image' => $boutique->logo ? asset( $boutique->logo) : null,
             'produits' => $boutique->produits->map(function($produit) {
                 return [
                     'id' => $produit->id,
