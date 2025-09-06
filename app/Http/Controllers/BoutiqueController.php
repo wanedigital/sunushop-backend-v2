@@ -11,6 +11,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use App\Models\Categorie;
 use App\Models\Produit;
+use App\Models\Plan;
+use App\Models\Abonnement;
+use Carbon\Carbon;
 
 class BoutiqueController extends Controller
 {
@@ -92,9 +95,26 @@ if ($request->hasFile('logo')) {
     $data['logo'] = '/storage/' . $path;
 }
 
-$boutique = Boutique::create($data);
+    $boutique = Boutique::create($data);
 
-// Génération du lien signé pour validation
+    // --- Logique d'abonnement d'essai ---
+    // 1. Trouver le plan "Standard".
+    $planStandard = Plan::where('nom', 'Standard')->first();
+
+    // 2. Si le plan Standard existe, créer un abonnement d'essai de 30 jours.
+    if ($planStandard) {
+        Abonnement::create([
+            'user_id' => $request->user()->id,
+            'plan_id' => $planStandard->id,
+            'date_debut' => Carbon::now(),
+            'date_fin' => Carbon::now()->addDays(14),
+            'statut' => 'actif',
+            'statut_paiement' => 'essai' // Statut spécifique pour la période d'essai
+        ]);
+    }
+    // --- Fin de la logique d'abonnement ---
+
+    // Génération du lien signé pour validation
     $validationUrl = URL::temporarySignedRoute(
         'api.boutique.approuver-vendeur',
         now()->addMinutes(60),
