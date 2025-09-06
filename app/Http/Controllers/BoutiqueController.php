@@ -80,20 +80,20 @@ class BoutiqueController extends Controller
 public function store(Request $request)
 {
     $request->validate([
-    'nom' => 'required|string',
-    'adresse' => 'required|string',
-    'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-    'numeroCommercial' => 'required|string',
-    'status' => 'nullable|in:ouvret,fermer', 
- ]);
+        'nom' => 'required|string',
+        'adresse' => 'required|string',
+        'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+        'numeroCommercial' => 'required|string',
+        'status' => 'nullable|in:ouvret,fermer', 
+    ]);
 
-$data = $request->only(['nom', 'adresse', 'numeroCommercial', 'status']);
-$data['id_user'] = $request->user()->id;
+    $data = $request->only(['nom', 'adresse', 'numeroCommercial', 'status']);
+    $data['id_user'] = $request->user()->id;
 
-if ($request->hasFile('logo')) {
-    $path = $request->file('logo')->store('logos', 'public');
-    $data['logo'] = '/storage/' . $path;
-}
+    if ($request->hasFile('logo')) {
+        $path = $request->file('logo')->store('logos', 'public');
+        $data['logo'] = '/storage/' . $path;
+    }
 
     $boutique = Boutique::create($data);
 
@@ -114,6 +114,7 @@ if ($request->hasFile('logo')) {
     }
     // --- Fin de la logique d'abonnement ---
 
+
     // Génération du lien signé pour validation
     $validationUrl = URL::temporarySignedRoute(
         'api.boutique.approuver-vendeur',
@@ -121,17 +122,45 @@ if ($request->hasFile('logo')) {
         ['user' => auth()->id()]
     );
 
-    // Envoi de l’email avec le lien
-    Mail::to(auth()->user()->email)->send(new DemandeValidationProfil($validationUrl));
-
-    return response()->json([
-        'message' => 'Boutique créée avec succès. Un email vous a été envoyé pour activer votre profil de vendeur.',
-        'boutique' => $boutique,
-    ]);
-
+    try {
+        // Envoi de l'email
+        Mail::to(auth()->user()->email)->send(new DemandeValidationProfil($validationUrl));
+        
+        return response()->json([
+            'message' => 'Boutique créée avec succès. Un email vous a été envoyé pour activer votre profil de vendeur.',
+            'email_sent' => true,
+            'validation_url' => $validationUrl, // ← ICI : retourne le lien dans la réponse
+            'email_address' => auth()->user()->email,
+            'boutique' => $boutique,
+        ]);
+        
+    } catch (\Exception $e) {
+        \Log::error('Erreur envoi email: ' . $e->getMessage());
+        
+        return response()->json([
+            'message' => 'Boutique créée mais erreur lors de l\'envoi de l\'email. Utilisez le lien ci-dessous pour valider manuellement.',
+            'email_sent' => false,
+            'validation_url' => $validationUrl, // ← Même en cas d'erreur, retourne le lien
+            'boutique' => $boutique,
+        ], 201);
+    }
 }
 
-
+public function hasBoutique()
+{
+    $user = Auth::user();
+    
+    $boutique = Boutique::where('id_user', $user->id)->first();
+    
+    return response()->json([
+        'has_boutique' => !!$boutique,
+        'boutique' => $boutique ? [
+            'id' => $boutique->id,
+            'nom' => $boutique->nom,
+            'status' => $boutique->status
+        ] : null
+    ]);
+}
 
     /**
      * Display the specified resource.
@@ -261,7 +290,7 @@ if ($request->hasFile('logo')) {
         
         return response()->json([
             'boutique' => $boutique->nom,
-            'boutique_image' => $boutique->logo ? asset('storage/' . $boutique->logo) : null,
+            'boutique_image' => $boutique->logo ? asset( $boutique->logo) : null,
             'produits' => $boutique->produits->map(function($produit) {
                 return [
                     'id' => $produit->id,
