@@ -81,5 +81,10 @@ class User extends Authenticatable
             return $this->hasOne(Boutique::class, 'id_user');
         }
 
+    public function abonnements()
+    {
+        return $this->hasMany(Abonnement::class, 'user_id');
+    }
+
 
 }

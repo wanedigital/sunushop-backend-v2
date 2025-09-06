@@ -8,6 +8,8 @@ use App\Http\Controllers\CategorieController;
 use App\Http\Controllers\API\ProfilValidationController;
 use App\Http\Controllers\Api\CommandeController;
 use App\Http\Controllers\API\StatistiqueController;
+use App\Http\Controllers\API\PlanController;
+use App\Http\Controllers\API\AbonnementController;
 
 
 
@@ -56,6 +58,13 @@ Route::middleware(['auth:sanctum', 'role:Administrateur'])->group(function () {
     Route::get('/admin/statistiques/utilisateurs/croissance/{periode?}', [StatistiqueController::class, 'croissanceUtilisateurs'])->name('api.admin.stats.users.growth');
     Route::get('/admin/statistiques/boutiques/classement/{limit?}', [StatistiqueController::class, 'classementBoutiques'])->name('api.admin.stats.shops.top');
     Route::get('/admin/statistiques/produits/classement/{limit?}', [StatistiqueController::class, 'classementProduits'])->name('api.admin.stats.products.top');
+
+    // Gestion des plans d'abonnement (Admin seulement)
+    Route::apiResource('plans', PlanController::class);
+
+    // Gestion des abonnements (Admin seulement)
+    Route::get('/abonnements', [AbonnementController::class, 'index']);
+    Route::get('/abonnements/{abonnement}', [AbonnementController::class, 'show']);
 });
 
 
@@ -70,10 +79,9 @@ Route::apiResource('produit-boutiques', \App\Http\Controllers\Prod_BoutiqueContr
 
 //Route::apiResource('boutiques', \App\Http\Controllers\BoutiqueController::class);
 
-Route::middleware('auth:sanctum')->apiResource('boutiques', \App\Http\Controllers\BoutiqueController::class);
 
 Route::middleware('auth:sanctum')->group(function () {
-    //Route::apiResource('boutiques', \App\Http\Controllers\BoutiqueController::class);
+    Route::apiResource('boutiques', \App\Http\Controllers\BoutiqueController::class);
 });
 
 Route::get('/allboutiques', [BoutiqueController::class, 'allboutique']);
@@ -93,7 +101,7 @@ Route::get('/boutiques/{id}/produits', [BoutiqueController::class, 'produits']);
 Route::get('/valider-vendeur', [ProfilValidationController::class, 'valider'])
     ->name('api.boutique.approuver-vendeur');
 
-Route::middleware('auth:sanctum')->post('/produits', [ProduitController::class, 'store']);
+Route::middleware(['auth:sanctum', 'abonnement'])->post('/produits', [ProduitController::class, 'store']);
 Route::middleware('auth:sanctum')->get('/vendeur/produits', [BoutiqueController::class, 'mesProduits']);
 // Route accessible aux utilisateurs authentifiés (pas seulement vendeurs)
 Route::middleware('auth:sanctum')->get('/user/has-boutique', [BoutiqueController::class, 'hasBoutique']);
@@ -114,6 +122,10 @@ Route::prefix('commandes')->group(function () {
     // ... route pour permettre au vendeur de modifier le statut et Statitistique du vendeur
 
 Route::middleware('auth:sanctum')->group(function () {
+    // Routes pour les vendeurs concernant les abonnements
+    Route::get('/abonnements/plans', [AbonnementController::class, 'listerPlansDisponibles']);
+    Route::get('/mon-abonnement', [AbonnementController::class, 'voirMonAbonnement']);
+
     Route::patch('/commandes/{id}/statut', [CommandeController::class, 'updateStatut']);
     Route::patch('/commandes/{commandeId}/paiement/statut', [CommandeController::class, 'updatePaiementStatus']);
 
