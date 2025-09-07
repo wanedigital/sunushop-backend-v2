@@ -77,5 +77,15 @@ class User extends Authenticatable
         return $this->profil && $this->profil->libelle === $role;
     }
 
+        public function isVendor(): bool
+    {
+        // Si tu utilises Spatie permissions/roles :
+        if (method_exists($this, 'hasRole') && $this->hasRole('Vendeur')) {
+            return true;
+        }
+
+        // Sinon on se base sur la relation profil->libelle
+        return strtolower(optional($this->profil)->libelle ?? '') === 'vendeur';
+    }
 
 }
