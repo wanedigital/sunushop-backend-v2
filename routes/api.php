@@ -41,6 +41,23 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/user/update', [AuthController::class, 'updateProfile'])->name('api.user.update');
     Route::patch('/user/change-password', [AuthController::class, 'changePassword']);
 
+    // Client : soumettre une évaluation
+    Route::post('/evaluations', [App\Http\Controllers\EvaluationController::class, 'store']);
+
+    // Messagerie : client envoie un message à un vendeur
+    Route::post('/messages/envoyer', [App\Http\Controllers\MessagerieController::class, 'envoyer']);
+    // Messagerie : messages reçus (pagination)
+    Route::get('/messages/recus', [App\Http\Controllers\MessagerieController::class, 'recus']);
+    // Messagerie : messages envoyés (pagination)
+    Route::get('/messages/envoyes', [App\Http\Controllers\MessagerieController::class, 'envoyes']);
+    // Messagerie : conversations
+    Route::get('/messages/conversations', [App\Http\Controllers\MessagerieController::class, 'conversations']);
+    // Messagerie : marquer un message comme lu
+    Route::post('/messages/{id}/marquer-lu', [App\Http\Controllers\MessagerieController::class, 'marquerCommeLu']);
+    // Messagerie : répondre à un message
+    Route::post('/messages/{id}/repondre', [App\Http\Controllers\MessagerieController::class, 'repondre']);
+    // Messagerie : marquer toute une conversation comme lue
+    Route::post('/messages/conversation/{userId}/marquer-lus', [App\Http\Controllers\MessagerieController::class, 'marquerConversationCommeLue']);
 });
 
 // Routes pour les utilisateurs (administrateurs uniquement)
@@ -71,6 +88,19 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::apiResource('categories', \App\Http\Controllers\CategorieController::class);
 Route::apiResource('produits', \App\Http\Controllers\ProduitController::class);
 
+// Public/Client : voir évaluations d'un produit
+Route::get('/produits/{produit}/evaluations', [App\Http\Controllers\EvaluationController::class, 'index']);
+
+// Routes améliorées pour évaluations
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/evaluations', [App\Http\Controllers\EvaluationController::class, 'store']);
+});
+
+Route::middleware(['auth:sanctum', 'role:Administrateur'])->group(function () {
+    Route::put('/evaluations/{id}/moderate', [App\Http\Controllers\EvaluationController::class, 'moderate']);
+    Route::get('/evaluations/en-attente', [App\Http\Controllers\EvaluationController::class, 'evaluationsEnAttente']);
+});
+
 Route::get('/boutiques/{id}/produits', [BoutiqueController::class, 'produits']);
 
 // route qui permet de modifier le produit du client en vendeur lorsqu'il cree une boutique
@@ -93,6 +123,9 @@ Route::prefix('commandes')->group(function () {
     // Annulation d'une commande (accessible aux connectés et non connectés)
     Route::patch('/{id}/annuler', [CommandeController::class, 'annuler']);
 });
+
+// Admin : modération des évaluations
+Route::middleware(['auth:sanctum', 'role:Administrateur'])->patch('/admin/evaluations/{id}/moderate', [App\Http\Controllers\EvaluationController::class, 'moderate']);
 
 // Routes protégées par authentification
 Route::middleware('auth:sanctum')->group(function () {
